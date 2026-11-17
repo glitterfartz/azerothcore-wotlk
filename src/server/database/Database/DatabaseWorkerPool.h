@@ -28,15 +28,26 @@
 
 /**
 * @def MIN_MYSQL_CLIENT_VERSION
-* The minimum MySQL Client Version
+* The minimum MySQL Client Version, or the minimum MariaDB Connector/C version
+* MARIADB_VERSION_ID is defined if using libmariadb instead of libmysqlclient
 */
+#if defined(MARIADB_VERSION_ID)
+#define MIN_MYSQL_CLIENT_VERSION 30203u
+#else
 #define MIN_MYSQL_CLIENT_VERSION 80000u
+#endif
 
 /**
 * @def MIN_MYSQL_SERVER_VERSION
 * The minimum MySQL Server Version
 */
 #define MIN_MYSQL_SERVER_VERSION "8.0.0"
+
+/**
+* @def MIN_MARIADB_SERVER_VERSION
+* The minimum MariaDB Server Version
+*/
+#define MIN_MARIADB_SERVER_VERSION "10.5.0"
 
 template <typename T>
 class ProducerConsumerQueue;

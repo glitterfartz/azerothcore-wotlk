@@ -52,6 +52,7 @@ set(_MYSQL_ROOT_HINTS
 )
 
 set(MYSQL_MINIMUM_VERSION "8.0")
+set(MARIADB_MINIMUM_VERSION "10.5")
 
 function(check_mysql_version)
   if(MYSQL_CONFIG)
@@ -60,7 +61,14 @@ function(check_mysql_version)
       OUTPUT_VARIABLE MYSQL_VERSION
       OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-    if(MYSQL_VERSION VERSION_LESS MYSQL_MINIMUM_VERSION)
+    # MariaDB Connector/C ships mariadb_version.h next to mysql.h
+    if(EXISTS "${MYSQL_INCLUDE_DIR}/mariadb_version.h")
+      if(MYSQL_VERSION VERSION_LESS MARIADB_MINIMUM_VERSION)
+        message(FATAL_ERROR "MariaDB version found (${MYSQL_VERSION}) is less than the required version (${MARIADB_MINIMUM_VERSION})")
+      else()
+        message(STATUS "Found MariaDB version: ${MYSQL_VERSION}")
+      endif()
+    elseif(MYSQL_VERSION VERSION_LESS MYSQL_MINIMUM_VERSION)
       message(FATAL_ERROR "MySQL version found (${MYSQL_VERSION}) is less than the required version (${MYSQL_MINIMUM_VERSION})")
     else()
       message(STATUS "Found MySQL version: ${MYSQL_VERSION}")
