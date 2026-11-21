@@ -172,6 +172,15 @@ function comp_configure() {
     DCONF="-DCONF_DIR=$CONFDIR"
   fi
 
+  local MYSQL_DEPS_FLAGS=""
+  if comp_mysqlDepsAvailable; then
+    local mysql_deps_dir
+    mysql_deps_dir=$(comp_mysqlDepsDir)
+    MYSQL_DEPS_FLAGS="-DMYSQL_INCLUDE_DIR=$mysql_deps_dir/include -DMYSQL_LIBRARY=$mysql_deps_dir/lib/libmysqlclient.so"
+    echo "Using MySQL client libraries from $mysql_deps_dir"
+    comp_mysqlDepsInstallRuntime
+  fi
+
   comp_ccacheEnable
 
   OSOPTIONS=""
@@ -199,7 +208,7 @@ function comp_configure() {
   -DWITH_WARNINGS=$CWARNINGS \
   -DCMAKE_C_COMPILER=$CCOMPILERC \
   -DCMAKE_CXX_COMPILER=$CCOMPILERCXX \
-  $CBUILD_APPS_LIST $CBUILD_TOOLS_LIST $OSOPTIONS $CCUSTOMOPTIONS
+  $CBUILD_APPS_LIST $CBUILD_TOOLS_LIST $OSOPTIONS $CCUSTOMOPTIONS $MYSQL_DEPS_FLAGS
 
   cd $CWD
 

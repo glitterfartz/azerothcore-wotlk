@@ -212,3 +212,39 @@ EOF
     [ -f "$AC_MYSQL_DEP_DIR/include/mysql.h" ]
 }
 
+make_cmake_mock() {
+    cat > "$TEST_DIR/bin/cmake" << 'EOF'
+#!/usr/bin/env bash
+echo "cmake-args:$*"
+EOF
+    chmod +x "$TEST_DIR/bin/cmake"
+}
+
+run_comp_configure() {
+    run bash -c "
+        export BUILDPATH='$TEST_DIR/build'
+        export BINPATH='$TEST_DIR'
+        export AC_CCACHE=false
+        source '$SCRIPT_DIR/includes/functions.sh'
+        runHooks() { :; }
+        comp_configure
+    "
+}
+
+@test "configure: passes downloaded MySQL paths to cmake" {
+    make_fake_sdk
+    make_cmake_mock
+    run_comp_configure
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "-DMYSQL_INCLUDE_DIR=$AC_MYSQL_DEP_DIR/include" ]]
+    [[ "$output" =~ "-DMYSQL_LIBRARY=$AC_MYSQL_DEP_DIR/lib/libmysqlclient.so" ]]
+    [ -f "$BINPATH/lib/libmysqlclient.so.21" ]
+}
+
+@test "configure: leaves MySQL detection untouched without the SDK" {
+    make_cmake_mock
+    run_comp_configure
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"-DMYSQL_LIBRARY=$AC_MYSQL_DEP_DIR"* ]]
+}
+
