@@ -64,6 +64,8 @@ make_fake_sdk() {
     [ "$status" -eq 0 ]
     [ -f "$BINPATH/lib/libmysqlclient.so.21" ]
     [ -f "$BINPATH/lib/private/libssl.so.3" ]
+    [ ! -f "$BINPATH/lib/libssl.so.3" ]
+    [ ! -f "$BINPATH/lib/libcrypto.so.3" ]
 }
 
 @test "mysql-deps: runtime copy is a no-op without the SDK" {
@@ -117,10 +119,11 @@ EOF
 
 @test "mysql-deps: skips download when marker and files match" {
     make_fake_sdk
-    printf '8.0.46 deadbeef\n' > "$AC_MYSQL_DEP_DIR/.installed"
+    printf '8.0.46 deadbeef http://example.invalid/mysql.tar.xz\n' > "$AC_MYSQL_DEP_DIR/.installed"
     make_curl_mock
     run bash -c "
         export AC_MYSQL_DEP_SHA256=deadbeef
+        export AC_MYSQL_DEP_URL=http://example.invalid/mysql.tar.xz
         source '$SCRIPT_DIR/includes/functions.sh'
         comp_mysqlDeps
     "
@@ -143,7 +146,8 @@ EOF
     [ -f "$AC_MYSQL_DEP_DIR/include/mysql.h" ]
     [ -f "$AC_MYSQL_DEP_DIR/lib/libmysqlclient.so.21" ]
     [ -f "$AC_MYSQL_DEP_DIR/lib/private/libssl.so.3" ]
-    [ "$(cat "$AC_MYSQL_DEP_DIR/.installed")" = "8.0.46 $(cat "$TEST_DIR/fixture.sha")" ]
+    local expected="8.0.46 $(cat "$TEST_DIR/fixture.sha") http://example.invalid/mysql.tar.xz"
+    [ "$(cat "$AC_MYSQL_DEP_DIR/.installed")" = "$expected" ]
 }
 
 @test "mysql-deps: rejects checksum mismatch and leaves no SDK" {
@@ -246,5 +250,62 @@ run_comp_configure() {
     run_comp_configure
     [ "$status" -eq 0 ]
     [[ "$output" != *"-DMYSQL_LIBRARY=$AC_MYSQL_DEP_DIR"* ]]
+}
+
+@test "mysql-deps: re-extracts when only the URL changes with an empty SHA" {
+    make_fake_sdk
+    printf '8.0.46  http://old.invalid/mysql.tar.xz\n' > "$AC_MYSQL_DEP_DIR/.installed"
+    make_tarball_fixture
+    make_curl_mock
+    run bash -c "
+        export AC_MYSQL_DEP_SHA256=
+        export AC_MYSQL_DEP_URL=http://example.invalid/mysql.tar.xz
+        export AC_MYSQL_DEP_ARCH=x86_64
+        source '$SCRIPT_DIR/includes/functions.sh'
+        comp_mysqlDeps
+    "
+    [ "$status" -eq 0 ]
+    [ -f "$CURL_CALL_LOG" ]
+    [ -f "$AC_MYSQL_DEP_DIR/include/mysql.h" ]
+}
+
+@test "mysql-deps: accepts a custom URL on other architectures" {
+    make_tarball_fixture
+    make_curl_mock
+    run bash -c "
+        export AC_MYSQL_DEP_ARCH=aarch64
+        export AC_MYSQL_DEP_SHA256=\$(cat '$TEST_DIR/fixture.sha')
+        export AC_MYSQL_DEP_URL=http://example.invalid/mysql.tar.xz
+        source '$SCRIPT_DIR/includes/functions.sh'
+        comp_mysqlDeps
+    "
+    [ "$status" -eq 0 ]
+    [ -f "$AC_MYSQL_DEP_DIR/include/mysql.h" ]
+}
+
+@test "mysql-deps: refuses to download on non-Linux systems" {
+    run bash -c "
+        export AC_MYSQL_DEP_OS=Darwin
+        source '$SCRIPT_DIR/includes/functions.sh'
+        comp_mysqlDeps
+    "
+    [ "$status" -eq 1 ]
+    [[ "$output" =~ "only supported on Linux" ]]
+}
+
+@test "configure: leaves non-Linux hints alone even with an SDK present" {
+    make_fake_sdk
+    make_cmake_mock
+    run bash -c "
+        export BUILDPATH='$TEST_DIR/build'
+        export BINPATH='$TEST_DIR'
+        export AC_CCACHE=false
+        export AC_MYSQL_DEP_OS=Darwin
+        source '$SCRIPT_DIR/includes/functions.sh'
+        runHooks() { :; }
+        comp_configure
+    "
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"-DMYSQL_INCLUDE_DIR=$AC_MYSQL_DEP_DIR"* ]]
 }
 
