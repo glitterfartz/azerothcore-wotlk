@@ -58,6 +58,34 @@ function comp_ccacheShowStats() {
     ccache -s
 }
 
+function comp_mysqlDepsDir() {
+  echo "${AC_MYSQL_DEP_DIR:-${AC_PATH_VAR:-$PWD/var}/deps/mysql}"
+}
+
+function comp_mysqlDepsAvailable() {
+  local dir
+  dir=$(comp_mysqlDepsDir)
+  [ -f "$dir/include/mysql.h" ] && [ -e "$dir/lib/libmysqlclient.so" ]
+}
+
+function comp_mysqlDepsInstallRuntime() {
+  comp_mysqlDepsAvailable || return 0
+
+  local dir libDest f
+  dir=$(comp_mysqlDepsDir)
+  libDest="${BINPATH:?BINPATH is not set}/lib"
+
+  mkdir -p "$libDest/private"
+  for f in "$dir/lib/"libmysqlclient.so*; do
+    cp -a "$f" "$libDest/"
+  done
+  if [ -d "$dir/lib/private" ]; then
+    cp -a "$dir/lib/private/." "$libDest/private/"
+  fi
+
+  echo "Installed MySQL client libraries into $libDest"
+}
+
 function comp_configure() {
   CWD=$(pwd)
 
