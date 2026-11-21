@@ -86,6 +86,71 @@ function comp_mysqlDepsInstallRuntime() {
   echo "Installed MySQL client libraries into $libDest"
 }
 
+function comp_mysqlDeps() {
+  local version="${AC_MYSQL_DEP_VERSION:-8.0.46}"
+  # `-` not `:-`: an explicitly empty AC_MYSQL_DEP_SHA256 means "skip verification"
+  local sha="${AC_MYSQL_DEP_SHA256-e2777d490fcaadc5a4be06db89b6935c78909bd9c3382af859ab284af0c950b0}"
+  local arch="${AC_MYSQL_DEP_ARCH:-$(uname -m)}"
+  local dir
+  dir=$(comp_mysqlDepsDir)
+  local marker="$dir/.installed"
+
+  case "$arch" in
+    x86_64|amd64) arch=x86_64 ;;
+    *)
+      echo "MySQL client libraries are only available for x86_64 (detected: $arch)." >&2
+      echo "Set AC_MYSQL_DEP_URL and AC_MYSQL_DEP_SHA256 to use a custom archive." >&2
+      return 1
+      ;;
+  esac
+
+  if [ -f "$marker" ] && [ "$(cat "$marker" 2>/dev/null)" = "$version $sha" ] && comp_mysqlDepsAvailable; then
+    echo "MySQL client libraries $version already installed in $dir"
+    comp_mysqlDepsInstallRuntime
+    return 0
+  fi
+
+  local url="${AC_MYSQL_DEP_URL:-https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-$version-linux-glibc2.17-$arch-minimal.tar.xz}"
+  local tmp
+  tmp=$(mktemp "${TMPDIR:-/tmp}/acore-mysql-deps.XXXXXX")
+
+  echo "Downloading MySQL client libraries $version from $url"
+  if ! curl -fsSL -o "$tmp" "$url"; then
+    echo "Download failed: $url" >&2
+    rm -f "$tmp"
+    return 1
+  fi
+
+  if [ -n "$sha" ]; then
+    if ! printf '%s  %s\n' "$sha" "$tmp" | sha256sum -c --status; then
+      echo "Checksum verification failed for $url" >&2
+      rm -f "$tmp"
+      return 1
+    fi
+  else
+    echo "WARNING: AC_MYSQL_DEP_SHA256 is empty, skipping checksum verification" >&2
+  fi
+
+  local staging
+  staging=$(mktemp -d "${TMPDIR:-/tmp}/acore-mysql-deps.XXXXXX")
+  if ! tar -xJf "$tmp" -C "$staging" --strip-components=1 --wildcards '*/include/*' '*/lib/*'; then
+    echo "Failed to extract $tmp" >&2
+    rm -rf "$staging" "$tmp"
+    return 1
+  fi
+  rm -f "$tmp"
+
+  mkdir -p "$dir"
+  rm -rf "$dir/include" "$dir/lib"
+  mv "$staging/include" "$dir/include"
+  mv "$staging/lib" "$dir/lib"
+  rm -rf "$staging"
+  printf '%s %s\n' "$version" "$sha" > "$marker"
+
+  echo "MySQL client libraries $version installed in $dir"
+  comp_mysqlDepsInstallRuntime
+}
+
 function comp_configure() {
   CWD=$(pwd)
 
