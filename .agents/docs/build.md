@@ -9,6 +9,10 @@ cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/azeroth-server -DCMAKE_BUILD_TYPE=RelWithD
 jobs=$(nproc) && [ "$jobs" -gt 0 ] && make -j"$jobs" && make install
 ```
 
+If Oracle MySQL client development files are unavailable (e.g. Arch):
+`./bin/acore-compiler mysql` downloads the pinned MySQL 8.0 client SDK into `var/deps/mysql`; the next configure
+picks it up automatically and installs the shared libraries into `env/dist/lib`.
+
 Every build command, plan-given ones included, takes its job count from `nproc`, checked as above: an empty count
 makes `make -j` unlimited and the parallel compilers exhaust memory. Never `sysctl`: a sandbox may block it, and it
 then prints nothing.
