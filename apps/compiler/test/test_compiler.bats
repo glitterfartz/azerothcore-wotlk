@@ -307,3 +307,9 @@ teardown() {
         [[ "$output" =~ "comp_clean called" ]] && [[ "$output" =~ "comp_build called" ]]
     fi
 }
+
+@test "compiler: should list the mysql download command" {
+    run bash -c "echo '' | timeout 5s $COMPILER_SCRIPT --help"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "mysql (my): Download MySQL client libraries" ]]
+}

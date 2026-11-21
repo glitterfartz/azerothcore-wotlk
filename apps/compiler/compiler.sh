@@ -17,6 +17,7 @@ comp_menu_items=(
     "all|a|clean, configure and compile"
     "ccacheClean|cc|Clean ccache files, normally not needed"
     "ccacheShowStats|cs|show ccache statistics"
+    "mysql|my|Download MySQL client libraries"
     "quit|q|Close this menu"
 )
 
@@ -34,6 +35,9 @@ function handle_compiler_command() {
             ;;
         "configure")
             comp_configure
+            ;;
+        "mysql")
+            comp_mysqlDeps
             ;;
         "compile")
             comp_compile
